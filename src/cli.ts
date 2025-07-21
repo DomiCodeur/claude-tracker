@@ -97,9 +97,5 @@ program.on('command:*', (operands) => {
   process.exit(1);
 });
 
-// Show help if no arguments provided
-if (process.argv.length === 2) {
-  program.help();
-}
 
 program.parse();

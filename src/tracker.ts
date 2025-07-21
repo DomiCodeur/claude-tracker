@@ -5,6 +5,7 @@
 
 import { ClaudeReader } from './claudeReader.js';
 import { TrackerConfig, ProgressDisplay } from './types.js';
+import { spawn } from 'child_process';
 
 export class LiveTracker {
   private reader: ClaudeReader;
@@ -82,7 +83,7 @@ export class LiveTracker {
     const display = this.createProgressDisplay();
     
     if (!display) {
-      process.stdout.write('\rNo session found');
+      process.stdout.write('\r\x1b[33mWaiting for Claude session...\x1b[0m');
       return;
     }
 
@@ -93,7 +94,7 @@ export class LiveTracker {
       `| ${display.resetInfo}`
     ].join(' ');
 
-    process.stdout.write('\r' + line);
+    process.stdout.write('\r\x1b[K' + line);
   }
 
   /**
@@ -101,6 +102,12 @@ export class LiveTracker {
    */
   start(): void {
     this.isRunning = true;
+
+    // Launch Claude Code in a new terminal
+    this.launchClaudeInNewTerminal();
+
+    console.log('Claude Code launched in new terminal');
+    console.log('Monitoring tokens in real-time...\n');
 
     // Initial display
     this.displayUsage();
@@ -122,6 +129,39 @@ export class LiveTracker {
       console.log('\nStopped');
       process.exit(0);
     });
+  }
+
+  /**
+   * Launch Claude Code in a new terminal window
+   */
+  private launchClaudeInNewTerminal(): void {
+    try {
+      // Try different terminal commands based on desktop environment
+      const terminals = [
+        'gnome-terminal --tab -- claude',  // GNOME with tab
+        'gnome-terminal --maximize -- claude',  // GNOME maximized
+        'konsole --new-tab -e claude',     // KDE with tab
+        'konsole -e claude',               // KDE
+        'xfce4-terminal --tab -e claude',  // XFCE with tab
+        'xfce4-terminal -e claude',        // XFCE
+        'tilix -e claude',                 // Tilix
+        'terminator -e claude',            // Terminator
+        'xterm -e claude',                // fallback
+        'x-terminal-emulator -e claude'   // generic
+      ];
+      
+      for (const cmd of terminals) {
+        try {
+          const [terminal, ...args] = cmd.split(' ');
+          spawn(terminal, args, { detached: true, stdio: 'ignore' });
+          break;
+        } catch (error) {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.log('Could not launch new terminal. Run "claude" in another terminal manually.');
+    }
   }
 
   /**
