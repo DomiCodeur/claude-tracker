@@ -1,0 +1,49 @@
+{
+  "name": "claude-tracker",
+  "version": "1.0.0",
+  "description": "Minimalist real-time monitoring of Claude Code session usage",
+  "main": "dist/index.js",
+  "bin": {
+    "claude-track": "dist/cli.js",
+    "ctrack": "dist/cli.js"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Tests coming soon\" && exit 0"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "token",
+    "usage",
+    "tracker",
+    "monitoring",
+    "real-time",
+    "cli"
+  ],
+  "author": "DomiCodeur",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "glob": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DomiCodeur/claude-tracker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DomiCodeur/claude-tracker/issues"
+  },
+  "homepage": "https://github.com/DomiCodeur/claude-tracker#readme"
+}
