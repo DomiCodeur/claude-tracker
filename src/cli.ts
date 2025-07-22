@@ -6,7 +6,8 @@
 
 import { Command } from 'commander';
 import { LiveTracker } from './tracker.js';
-import { ClaudeReader } from './claudeReader.js';
+import { DataService } from './services/dataService.js';
+import { DisplayService } from './services/displayService.js';
 
 const program = new Command();
 
@@ -43,50 +44,66 @@ program
   .description('Show current session status (one-time)')
   .action(() => {
     const tracker = new LiveTracker();
-    const display = tracker.snapshot();
+    const displayService = new DisplayService();
     
-    if (!display) {
-      console.log('No Claude Code session found');
-      console.log('Make sure Claude Code CLI is installed and you have used it recently.');
+    if (!tracker.isDataAvailable()) {
+      displayService.displayError('No Claude Code session found');
+      displayService.displayInfo('Make sure Claude Code CLI is installed and you have used it recently.');
       process.exit(1);
     }
     
-    console.log(`\nProgress: [${display.progressBar}] ${display.percentage}%`);
+    const display = tracker.snapshot();
+    if (!display) {
+      displayService.displayError('Unable to read session data');
+      process.exit(1);
+    }
+    
+    displayService.newLine();
+    console.log(`Progress: [${display.progressBar}] ${display.percentage}%`);
     console.log(`Tokens:   ${display.tokensUsed}/${display.tokenLimit}`);
-    console.log(`Reset:    ${display.resetInfo}\n`);
+    console.log(`Reset:    ${display.resetInfo}`);
+    displayService.newLine();
   });
 
 program
   .command('check')
   .description('Check if Claude Code session files are accessible')
   .action(() => {
-    console.log('Checking Claude Code installation...\n');
+    const dataService = new DataService();
+    const displayService = new DisplayService();
     
-    const reader = new ClaudeReader();
-    const sessionFile = reader.findLatestSessionFile();
+    displayService.displayInfo('Checking Claude Code installation...');
+    displayService.newLine();
     
-    if (!sessionFile) {
-      console.log('No Claude Code session files found');
-      console.log('Expected location: ~/.claude/projects/');
+    if (!dataService.isAvailable()) {
+      displayService.displayError('No Claude Code session files found');
+      console.log('Expected locations:');
+      console.log('  - ~/.claude/projects/');
+      console.log('  - ~/.config/claude/projects/');
+      console.log('  - $CLAUDE_CONFIG_DIR/projects/');
+      displayService.newLine();
       console.log('Make sure:');
       console.log('  1. Claude Code CLI is installed');
       console.log('  2. You have used Claude Code at least once');
       process.exit(1);
     }
     
-    console.log('Claude Code session files found');
-    console.log(`Latest session: ${sessionFile}`);
+    displayService.displaySuccess('Claude Code session files found');
     
-    const usage = reader.getCurrentUsage();
+    const usage = dataService.getCurrentUsage();
     if (usage) {
-      console.log('Session data readable');
+      displayService.displaySuccess('Session data readable');
       console.log(`Session started: ${usage.sessionStart.toLocaleString()}`);
       console.log(`Total tokens: ${usage.totalTokens.toLocaleString()}`);
+      if (usage.timeRemaining) {
+        console.log(`Reset time: ${usage.timeRemaining.hours}h ${usage.timeRemaining.minutes}min remaining`);
+      }
     } else {
-      console.log('Warning: Session file found but data not readable');
+      displayService.displayError('Warning: Session files found but data not readable');
     }
     
-    console.log('\nReady to track');
+    displayService.newLine();
+    displayService.displaySuccess('Ready to track');
     console.log('Run "claude-track" or "ctrack" to start live monitoring');
   });
 

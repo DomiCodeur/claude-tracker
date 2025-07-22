@@ -3,12 +3,13 @@
  * Real-time monitoring with terminal UI
  */
 
-import { ClaudeReader } from './claudeReader.js';
+import { DataService } from './services/dataService.js';
+import { DisplayService } from './services/displayService.js';
 import { TrackerConfig, ProgressDisplay } from './types.js';
-import { spawn } from 'child_process';
 
 export class LiveTracker {
-  private reader: ClaudeReader;
+  private dataService: DataService;
+  private displayService: DisplayService;
   private config: TrackerConfig;
   private isRunning: boolean = false;
 
@@ -17,63 +18,22 @@ export class LiveTracker {
     sessionHours: 5,
     updateInterval: 3000
   }) {
-    this.reader = new ClaudeReader();
     this.config = config;
-  }
-
-  /**
-   * Create a visual progress bar
-   */
-  private createProgressBar(percentage: number, width: number = 30): string {
-    const filled = Math.round((percentage / 100) * width);
-    const empty = width - filled;
-    
-    const filledBar = '█'.repeat(Math.max(0, filled));
-    const emptyBar = '░'.repeat(Math.max(0, empty));
-    
-    return filledBar + emptyBar;
-  }
-
-  /**
-   * Format numbers with commas for readability
-   */
-  private formatNumber(num: number): string {
-    return num.toLocaleString();
+    this.dataService = new DataService();
+    this.displayService = new DisplayService(config.sessionLimit);
   }
 
   /**
    * Create display data for current usage
    */
   private createProgressDisplay(): ProgressDisplay | null {
-    const usage = this.reader.getCurrentUsage();
+    const usage = this.dataService.getCurrentUsage();
     
     if (!usage) {
       return null;
     }
 
-    const percentage = Math.round((usage.totalTokens / this.config.sessionLimit) * 100);
-    const progressBar = this.createProgressBar(percentage);
-    
-    let resetInfo = 'Reset available';
-    if (usage.timeRemaining) {
-      resetInfo = `Reset in ${usage.timeRemaining.hours}h ${usage.timeRemaining.minutes}min`;
-    }
-
-    return {
-      percentage,
-      progressBar,
-      tokensUsed: this.formatNumber(usage.totalTokens),
-      tokenLimit: this.formatNumber(this.config.sessionLimit),
-      resetInfo
-    };
-  }
-
-
-  /**
-   * Clear the terminal and move cursor to top
-   */
-  private clearScreen(): void {
-    process.stdout.write('\x1b[H\x1b[2J');
+    return this.displayService.createProgressDisplay(usage.totalTokens, usage.timeRemaining);
   }
 
   /**
@@ -83,18 +43,11 @@ export class LiveTracker {
     const display = this.createProgressDisplay();
     
     if (!display) {
-      process.stdout.write('\r\x1b[33mWaiting for Claude session...\x1b[0m');
+      this.displayService.displayWaiting();
       return;
     }
 
-    const line = [
-      `[${display.progressBar}]`,
-      `${display.tokensUsed}/${display.tokenLimit}`,
-      `(${display.percentage}%)`,
-      `| ${display.resetInfo}`
-    ].join(' ');
-
-    process.stdout.write('\r\x1b[K' + line);
+    this.displayService.displayUsage(display);
   }
 
   /**
@@ -103,11 +56,15 @@ export class LiveTracker {
   start(): void {
     this.isRunning = true;
 
-    // Launch Claude Code in a new terminal
-    this.launchClaudeInNewTerminal();
+    // Check if Claude data is available
+    if (!this.dataService.isAvailable()) {
+      this.displayService.displayError('No Claude Code session found');
+      this.displayService.displayInfo('Make sure Claude Code CLI is installed and you have used it recently.');
+      process.exit(1);
+    }
 
-    console.log('Claude Code launched in new terminal');
-    console.log('Monitoring tokens in real-time...\n');
+    this.displayService.displayInfo('Monitoring Claude Code tokens in real-time...');
+    this.displayService.newLine();
 
     // Initial display
     this.displayUsage();
@@ -126,43 +83,12 @@ export class LiveTracker {
     process.on('SIGINT', () => {
       this.stop();
       clearInterval(interval);
-      console.log('\nStopped');
+      this.displayService.newLine();
+      this.displayService.displayInfo('Stopped');
       process.exit(0);
     });
   }
 
-  /**
-   * Launch Claude Code in a new terminal window
-   */
-  private launchClaudeInNewTerminal(): void {
-    try {
-      // Try different terminal commands based on desktop environment
-      const terminals = [
-        'gnome-terminal --tab -- claude',  // GNOME with tab
-        'gnome-terminal --maximize -- claude',  // GNOME maximized
-        'konsole --new-tab -e claude',     // KDE with tab
-        'konsole -e claude',               // KDE
-        'xfce4-terminal --tab -e claude',  // XFCE with tab
-        'xfce4-terminal -e claude',        // XFCE
-        'tilix -e claude',                 // Tilix
-        'terminator -e claude',            // Terminator
-        'xterm -e claude',                // fallback
-        'x-terminal-emulator -e claude'   // generic
-      ];
-      
-      for (const cmd of terminals) {
-        try {
-          const [terminal, ...args] = cmd.split(' ');
-          spawn(terminal, args, { detached: true, stdio: 'ignore' });
-          break;
-        } catch (error) {
-          continue;
-        }
-      }
-    } catch (error) {
-      console.log('Could not launch new terminal. Run "claude" in another terminal manually.');
-    }
-  }
 
   /**
    * Stop the live tracking
@@ -176,5 +102,19 @@ export class LiveTracker {
    */
   snapshot(): ProgressDisplay | null {
     return this.createProgressDisplay();
+  }
+
+  /**
+   * Check if Claude data is available
+   */
+  isDataAvailable(): boolean {
+    return this.dataService.isAvailable();
+  }
+
+  /**
+   * Force refresh data cache
+   */
+  refreshData(): void {
+    this.dataService.refreshCache();
   }
 }

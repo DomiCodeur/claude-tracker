@@ -17,7 +17,9 @@ export interface SessionUsage {
 export interface ClaudeMessage {
   type: string;
   timestamp: string;
+  requestId?: string;
   message?: {
+    id?: string;
     usage?: {
       input_tokens: number;
       output_tokens: number;
