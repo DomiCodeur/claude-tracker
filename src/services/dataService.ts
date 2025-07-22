@@ -221,15 +221,125 @@ export class DataService {
     const now = new Date();
     const sessionDurationMs = 5 * 60 * 60 * 1000; // 5 hours
     
-    // Simple approach: get entries from the last 5 hours from now
-    const windowStartTime = new Date(now.getTime() - sessionDurationMs);
-    const currentEntries: ClaudeMessage[] = [];
+    // Find the most recent activity to determine the current session
+    const latestEntry = entries[entries.length - 1];
+    const latestTime = new Date(latestEntry.timestamp);
+    
+    // If latest activity is more than 5h ago, no active session
+    const timeSinceLatest = now.getTime() - latestTime.getTime();
+    if (timeSinceLatest > sessionDurationMs) {
+      return null;
+    }
+    
+    // Special case: if we're very close to "now" (last 5 minutes), 
+    // treat this as a new session starting from the most recent continuous activity
+    const veryRecentThreshold = 5 * 60 * 1000; // 5 minutes
+    if (timeSinceLatest < veryRecentThreshold) {
+      // Find the start of recent continuous activity
+      let recentSessionStart = latestTime;
+      
+      for (let i = entries.length - 2; i >= 0; i--) { // Start from second-to-last
+        const currentTime = new Date(entries[i].timestamp);
+        const nextTime = new Date(entries[i + 1].timestamp);
+        const gap = nextTime.getTime() - currentTime.getTime();
+        
+        // If there's a gap of more than 30 minutes, previous activity is separate
+        if (gap > 30 * 60 * 1000) { // 30 minutes gap
+          break;
+        }
+        
+        recentSessionStart = currentTime;
+        
+        // Don't go back more than 5 hours
+        if (latestTime.getTime() - currentTime.getTime() > sessionDurationMs) {
+          break;
+        }
+      }
+      
+      // Create a session starting from this recent activity
+      const recentSessionEnd = new Date(recentSessionStart.getTime() + sessionDurationMs);
+      const currentEntries: ClaudeMessage[] = [];
+      
+      for (const entry of entries) {
+        const entryTime = new Date(entry.timestamp);
+        if (entryTime >= recentSessionStart) {
+          currentEntries.push(entry);
+        }
+      }
+      
+      if (currentEntries.length > 0) {
+        // Calculate tokens for this session
+        const tokenCounts: TokenCounts = {
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+          totalTokens: 0
+        };
 
+        for (const entry of currentEntries) {
+          if (entry.message?.usage) {
+            const usage = entry.message.usage;
+            tokenCounts.inputTokens += usage.input_tokens || 0;
+            tokenCounts.outputTokens += usage.output_tokens || 0;
+            tokenCounts.cacheCreationInputTokens += usage.cache_creation_input_tokens || 0;
+            tokenCounts.cacheReadInputTokens += usage.cache_read_input_tokens || 0;
+          }
+        }
+
+        tokenCounts.totalTokens = tokenCounts.inputTokens + tokenCounts.outputTokens;
+        const lastActivity = new Date(currentEntries[currentEntries.length - 1].timestamp);
+
+
+        return {
+          id: recentSessionStart.toISOString(),
+          startTime: recentSessionStart,
+          endTime: recentSessionEnd,
+          actualEndTime: lastActivity,
+          isActive: true,
+          entries: currentEntries,
+          tokenCounts
+        };
+      }
+    }
+    
+    // Work backwards to find the start of the current session
+    // A session starts when there's been no activity for more than 5 hours before it
+    let sessionStart = new Date(entries[0].timestamp);
+    
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const currentTime = new Date(entries[i].timestamp);
+      
+      if (i === 0) {
+        // First entry is the session start
+        sessionStart = currentTime;
+        break;
+      }
+      
+      const prevTime = new Date(entries[i - 1].timestamp);
+      const gap = currentTime.getTime() - prevTime.getTime();
+      
+      // If there's a gap of more than 5 hours, this is the start of the current session
+      if (gap > sessionDurationMs) {
+        sessionStart = currentTime;
+        break;
+      }
+      
+      // If we've gone back more than 5 hours from latest activity, stop here
+      const timeFromLatest = latestTime.getTime() - currentTime.getTime();
+      if (timeFromLatest >= sessionDurationMs) {
+        sessionStart = new Date(latestTime.getTime() - sessionDurationMs);
+        break;
+      }
+    }
+    
+    // Only include entries that are part of this session (within 5h of session start)
+    const sessionEndTime = new Date(sessionStart.getTime() + sessionDurationMs);
+    const currentEntries: ClaudeMessage[] = [];
+    
     for (const entry of entries) {
       const entryTime = new Date(entry.timestamp);
-      
-      // Only include entries within the last 5 hours
-      if (entryTime >= windowStartTime && entryTime <= now) {
+      if (entryTime >= sessionStart && entryTime <= sessionEndTime) {
         currentEntries.push(entry);
       }
     }
@@ -237,12 +347,6 @@ export class DataService {
     if (currentEntries.length === 0) {
       return null;
     }
-
-    // Session starts from the earliest entry in the window, but no earlier than 5h ago
-    const sessionStart = new Date(Math.max(
-      windowStartTime.getTime(),
-      new Date(currentEntries[0].timestamp).getTime()
-    ));
 
     // Calculate token counts
     const tokenCounts: TokenCounts = {
@@ -263,11 +367,13 @@ export class DataService {
       }
     }
 
-    tokenCounts.totalTokens = tokenCounts.inputTokens + tokenCounts.outputTokens + 
-                              tokenCounts.cacheCreationInputTokens + tokenCounts.cacheReadInputTokens;
+    // Only count actual billable tokens (input + output) for session limits
+    // Cache tokens have different pricing but don't count towards session limits
+    tokenCounts.totalTokens = tokenCounts.inputTokens + tokenCounts.outputTokens;
 
     const lastActivity = new Date(currentEntries[currentEntries.length - 1].timestamp);
     const theoreticalEnd = new Date(sessionStart.getTime() + sessionDurationMs);
+
 
     return {
       id: sessionStart.toISOString(),

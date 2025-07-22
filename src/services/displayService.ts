@@ -23,7 +23,11 @@ export class DisplayService {
    */
   private createProgressBar(percentage: number): string {
     const width = this.config.progressBarWidth;
-    const filled = Math.round((percentage / 100) * width);
+    
+    // Cap percentage at 100% for display purposes
+    const cappedPercentage = Math.min(percentage, 100);
+    
+    const filled = Math.round((cappedPercentage / 100) * width);
     const empty = width - filled;
     
     const filledBar = '█'.repeat(Math.max(0, filled));
