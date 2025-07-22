@@ -37,3 +37,10 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# Python environment and cache
+python-version/claude_env/
+python-version/__pycache__/
+python-version/tracking
+*.pyc
+*.pyo
