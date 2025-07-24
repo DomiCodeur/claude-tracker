@@ -64,6 +64,12 @@ claude-track status
 claude-track check
 ```
 
+#### Fix Erratic Percentage Display
+```bash
+claude-track reset
+```
+**Use this if percentages jump unexpectedly (e.g., from 70% to 25%)**
+
 ### Options
 
 - `-i, --interval <seconds>` - Update interval (default: 3 seconds)
@@ -131,6 +137,12 @@ npm start
 ### High CPU usage
 - Increase update interval: `claude-track -i 10` (10 seconds)
 - Default 3-second interval is usually fine for most systems
+
+### Erratic percentage display (jumping from 70% to 25%)
+- **Root cause**: Complex session detection logic creating inconsistent calculations
+- **Quick fix**: Run `claude-track reset` to clear internal session locks
+- **Prevention**: The stabilized algorithm now locks session boundaries to prevent recalculation jumps
+- **Technical details**: Issue was caused by dual detection logic (recent activity vs 5-hour window) combined with cache refresh cycles
 
 ## Contributing
 

@@ -48,7 +48,7 @@ export class DisplayService {
    */
   private formatTimeRemaining(timeRemaining: {hours: number; minutes: number} | null): string {
     if (!timeRemaining) {
-      return 'Reset available';
+      return 'Can reset now';
     }
     
     return `Reset in ${timeRemaining.hours}h ${timeRemaining.minutes}min`;

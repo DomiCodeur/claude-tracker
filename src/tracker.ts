@@ -26,8 +26,8 @@ export class LiveTracker {
   /**
    * Create display data for current usage
    */
-  private createProgressDisplay(): ProgressDisplay | null {
-    const usage = this.dataService.getCurrentUsage();
+  private async createProgressDisplay(): Promise<ProgressDisplay | null> {
+    const usage = await this.dataService.getCurrentUsage();
     
     if (!usage) {
       return null;
@@ -39,8 +39,8 @@ export class LiveTracker {
   /**
    * Display the current usage in a single line
    */
-  private displayUsage(): void {
-    const display = this.createProgressDisplay();
+  private async displayUsage(): Promise<void> {
+    const display = await this.createProgressDisplay();
     
     if (!display) {
       this.displayService.displayWaiting();
@@ -53,11 +53,11 @@ export class LiveTracker {
   /**
    * Start the live tracking
    */
-  start(): void {
+  async start(): Promise<void> {
     this.isRunning = true;
 
     // Check if Claude data is available
-    if (!this.dataService.isAvailable()) {
+    if (!(await this.dataService.isAvailable())) {
       this.displayService.displayError('No Claude Code session found');
       this.displayService.displayInfo('Make sure Claude Code CLI is installed and you have used it recently.');
       process.exit(1);
@@ -67,16 +67,16 @@ export class LiveTracker {
     this.displayService.newLine();
 
     // Initial display
-    this.displayUsage();
+    await this.displayUsage();
 
     // Set up interval for updates
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (!this.isRunning) {
         clearInterval(interval);
         return;
       }
       
-      this.displayUsage();
+      await this.displayUsage();
     }, this.config.updateInterval);
 
     // Handle Ctrl+C gracefully
@@ -100,15 +100,15 @@ export class LiveTracker {
   /**
    * Get a single snapshot of current usage
    */
-  snapshot(): ProgressDisplay | null {
-    return this.createProgressDisplay();
+  async snapshot(): Promise<ProgressDisplay | null> {
+    return await this.createProgressDisplay();
   }
 
   /**
    * Check if Claude data is available
    */
-  isDataAvailable(): boolean {
-    return this.dataService.isAvailable();
+  async isDataAvailable(): Promise<boolean> {
+    return await this.dataService.isAvailable();
   }
 
   /**
@@ -116,5 +116,13 @@ export class LiveTracker {
    */
   refreshData(): void {
     this.dataService.refreshCache();
+  }
+
+  /**
+   * Reset cache (pour debug des pourcentages erratiques)
+   */
+  resetCache(): void {
+    this.dataService.resetCache();
+    this.displayService.displayInfo('Cache reset - percentages should stabilize');
   }
 }

@@ -1,11 +1,12 @@
 {
   "name": "claude-tracker",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Minimalist real-time monitoring of Claude Code session usage",
   "main": "dist/index.js",
   "bin": {
     "claude-track": "dist/cli.js",
-    "ctrack": "dist/cli.js"
+    "ctrack": "dist/cli.js",
+    "ctracker": "dist/cli.js"
   },
   "type": "module",
   "engines": {
@@ -45,5 +46,10 @@
   "bugs": {
     "url": "https://github.com/DomiCodeur/claude-tracker/issues"
   },
-  "homepage": "https://github.com/DomiCodeur/claude-tracker#readme"
+  "homepage": "https://github.com/DomiCodeur/claude-tracker#readme",
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ]
 }

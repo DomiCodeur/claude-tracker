@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.1] - 2025-07-23
+
+### 🐛 Bug Fixes
+
+- **Fixed erratic percentage display**: Stabilized session detection algorithm to prevent percentage jumps (e.g., 70% → 25%)
+- **Added session locks**: Implemented session boundary locking to ensure consistent calculations across cache refreshes
+- **Simplified session logic**: Replaced complex dual detection logic with stable approach using 2-hour pause detection
+
+### ✨ New Features
+
+- **New `reset` command**: Added `claude-track reset` to fix percentage calculation issues
+- **Enhanced error handling**: Better handling of session boundary edge cases
+- **Improved documentation**: Added troubleshooting section for erratic percentage behavior
+
+### 🔧 Technical Improvements
+
+- Replaced volatile 5-minute recent activity detection with stable session locking
+- Added session start/ID locks to prevent recalculation during cache refresh cycles
+- Implemented `resetSessionLocks()` method for debugging percentage issues
+
 ## [1.0.0] - 2025-07-21
 
 ### 🎉 Initial Release
