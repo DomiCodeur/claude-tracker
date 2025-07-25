@@ -28,19 +28,22 @@ export class ClaudeReader {
       }
 
       // Find all JSONL files in projects subdirectories
+      // Use forward slashes for cross-platform compatibility
       const patterns = [
-        join(projectsDir, '**/*.jsonl'),
-        join(projectsDir, '**/conversations_*.jsonl')
+        join(projectsDir, '**/*.jsonl').replace(/\\/g, '/'),
+        join(projectsDir, '**/conversations_*.jsonl').replace(/\\/g, '/'),
+        join(projectsDir, '*/*.jsonl').replace(/\\/g, '/')
       ];
 
       let allFiles: string[] = [];
       
       for (const pattern of patterns) {
         try {
-          const files = globSync(pattern, { absolute: true });
+          const files = globSync(pattern, { absolute: true, windowsPathsNoEscape: true });
           allFiles.push(...files);
         } catch (error) {
           // Ignore glob errors and continue
+          console.debug(`Glob pattern ${pattern} failed:`, error);
         }
       }
 
